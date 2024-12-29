@@ -19,13 +19,45 @@ async function sendRequest(botName, action) {
   }
 
   try {
-    const response = await axios.post(`${bot.endpoint}/${action}`);
-    console.log(chalk.green(`${bot.name}: ${response.data.message}`));
+    const endpoint = `${bot.endpoint}/${action}`;
+    const response =
+      action === "status"
+        ? await axios.get(endpoint)
+        : await axios.post(endpoint);
+
+    if (action === "status") {
+      const statusData = response.data;
+      console.log(chalk.green(`\n${bot.name} Status:`));
+      console.log(chalk.cyan(`  - Status: ${statusData.status}`));
+      console.log(
+        chalk.cyan(`  - Starting Price: $${statusData.starting_price}`)
+      );
+      console.log(
+        chalk.cyan(`  - Current Price: $${statusData.current_price}`)
+      );
+      console.log(
+        chalk.cyan(
+          `  - Current Total Profits: $${statusData.current_total_profits}`
+        )
+      );
+      console.log(
+        chalk.cyan(
+          `  - Weekly Total Profits: $${statusData.weekly_total_profits}`
+        )
+      );
+      console.log(chalk.cyan(`  - Total Trades: ${statusData.total_trades}`));
+      console.log(
+        chalk.cyan(`  - Successful Trades: ${statusData.successful_trades}`)
+      );
+      console.log(chalk.cyan(`  - Failed Trades: ${statusData.failed_trades}`));
+    } else {
+      console.log(chalk.green(`${bot.name}: ${response.data.message}`));
+    }
   } catch (error) {
     console.error(
       chalk.red(
-        `${bot.name}: Failed to ${action}. ${
-          error.response ? error.response.data : error.message
+        `${bot.name}: ${
+          error.response ? error.response.data.message : error.message
         }`
       )
     );
@@ -60,35 +92,46 @@ async function mainMenu() {
   }
 
   await botActionsMenu(selectedBot);
+  await mainMenu(); // Return to the main menu after managing a bot
 }
 
 // Bot actions menu
 async function botActionsMenu(botName) {
   const bot = botsConfig[botName];
 
-  console.log(chalk.blue(`\nManaging: ${bot.name}`));
+  while (true) {
+    console.clear();
+    console.log(chalk.blue(`\nManaging: ${bot.name}`));
 
-  const { action } = await inquirer.prompt([
-    {
-      type: "list",
-      name: "action",
-      message: `Choose an action for ${bot.name}:`,
-      choices: [
-        { name: "🟢 Start Bot", value: "start" },
-        { name: "🔴 Stop Bot", value: "stop" },
-        { name: "ℹ️ Get Bot Status", value: "status" },
-        { name: "⬅️ Back to Main Menu", value: "back" },
-      ],
-    },
-  ]);
+    const { action } = await inquirer.prompt([
+      {
+        type: "list",
+        name: "action",
+        message: `Choose an action for ${bot.name}:`,
+        choices: [
+          { name: "🟢 Start Bot", value: "start" },
+          { name: "🔴 Stop Bot", value: "stop" },
+          { name: "ℹ️ Get Bot Status", value: "status" },
+          { name: "⬅️ Back to Main Menu", value: "back" },
+        ],
+      },
+    ]);
 
-  if (action === "back") {
-    return mainMenu();
+    if (action === "back") {
+      return; // Exit the current bot menu and go back to the main menu
+    }
+
+    await sendRequest(botName, action);
+
+    // Wait for user acknowledgment before returning to the actions menu
+    await inquirer.prompt([
+      {
+        type: "input",
+        name: "continue",
+        message: chalk.yellow("\nPress Enter to continue..."),
+      },
+    ]);
   }
-
-  await sendRequest(botName, action);
-  console.log(chalk.blue("\nReturning to the main menu..."));
-  setTimeout(() => mainMenu(), 1000);
 }
 
 // Start the CLI
