@@ -3,13 +3,14 @@
 import fs from "fs";
 import chalk from "chalk";
 import axios from "axios";
-import inquirer from "inquirer";
+import enquirer from "enquirer";
 
 // Load bot configuration
 const botsConfig = JSON.parse(fs.readFileSync("./bots.json", "utf8"));
 
 // Utility function to send requests to bots
-async function sendRequest(botName, action) {
+const sendRequest = async (botName, action, data = {}) => {
+  botName = botName.toLowerCase();
   const bot = botsConfig[botName];
   if (!bot) {
     console.error(
@@ -23,7 +24,7 @@ async function sendRequest(botName, action) {
     const response =
       action === "status"
         ? await axios.get(endpoint)
-        : await axios.post(endpoint);
+        : await axios.post(endpoint, data);
 
     if (action === "status") {
       const statusData = response.data;
@@ -62,27 +63,27 @@ async function sendRequest(botName, action) {
       )
     );
   }
-}
+};
 
 // Main menu logic
-async function mainMenu() {
+const mainMenu = async () => {
   console.clear();
   console.log(chalk.blue("Welcome to the Central CLI for Bots!"));
 
   const botChoices = Object.entries(botsConfig).map(([key, bot]) => ({
-    name: `${bot.name} - ${chalk.dim(bot.description)}`, // Combine name and description
-    value: key, // Use the bot key internally
+    name: `${bot.name} - ${chalk.dim(bot.description)}`,
+    value: key,
   }));
-
   botChoices.push({ name: "Exit", value: "exit" });
 
-  const { selectedBot } = await inquirer.prompt([
+  const { selectedBot } = await enquirer.prompt([
     {
-      type: "list",
+      type: "select", // Using 'select' for better functionality
       name: "selectedBot",
       message: "Select a bot to manage:",
       choices: botChoices,
-      pageSize: 10,
+      result: (answer) =>
+        botChoices.find((choice) => choice.name === answer).value,
     },
   ]);
 
@@ -91,29 +92,40 @@ async function mainMenu() {
     process.exit(0);
   }
 
-  await botActionsMenu(selectedBot);
-  await mainMenu(); // Return to the main menu after managing a bot
-}
+  await botActionsMenu(selectedBot); // Pass the key to manage the selected bot
+};
 
 // Bot actions menu
-async function botActionsMenu(botName) {
-  const bot = botsConfig[botName];
+const botActionsMenu = async (botKey) => {
+  const bot = botsConfig[botKey];
+
+  // Check if bot is undefined or not found in the config
+  if (!bot) {
+    console.error(
+      chalk.red(`Error: Bot "${botName}" not found in configuration.`)
+    );
+    return; // Exit the menu if the bot is not found
+  }
 
   while (true) {
     console.clear();
-    console.log(chalk.blue(`\nManaging: ${bot.name}`));
+    console.log(chalk.blue(`\nManaging: ${bot.name}`)); // Now we can safely access bot.name
 
-    const { action } = await inquirer.prompt([
+    const botOptions = [
+      { name: "🟢 Start Bot", value: "start" },
+      { name: "🔴 Stop Bot", value: "stop" },
+      { name: "ℹ️ Get Bot Status", value: "status" },
+      { name: "⬅️ Back to Main Menu", value: "back" },
+    ];
+
+    const { action } = await enquirer.prompt([
       {
-        type: "list",
+        type: "select", // Changed from 'list' to 'select' for better functionality
         name: "action",
         message: `Choose an action for ${bot.name}:`,
-        choices: [
-          { name: "🟢 Start Bot", value: "start" },
-          { name: "🔴 Stop Bot", value: "stop" },
-          { name: "ℹ️ Get Bot Status", value: "status" },
-          { name: "⬅️ Back to Main Menu", value: "back" },
-        ],
+        choices: botOptions,
+        result: (answer) =>
+          botOptions.find((choice) => choice.name === answer).value,
       },
     ]);
 
@@ -121,10 +133,70 @@ async function botActionsMenu(botName) {
       return; // Exit the current bot menu and go back to the main menu
     }
 
-    await sendRequest(botName, action);
+    let data = {};
+    if (action === "start") {
+      const symbols = [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "SOLUSDT",
+        "LTCUSDT",
+        "BNBUSDT",
+        "DOGEUSDT",
+        "MATICUSDT",
+        "BTCETH",
+        "ETHBTC",
+      ];
+
+      data = await enquirer.prompt([
+        {
+          type: "autocomplete", // Use autocomplete for symbol selection
+          name: "symbol",
+          message: "Enter or select the trading pair (e.g., BTCUSDT):",
+          choices: symbols, // All symbols are available
+          suggest: (input, choices) => {
+            return choices.filter((choice) =>
+              choice.toUpperCase().includes(input.toUpperCase())
+            );
+          },
+          default: "BTCUSDT", // Default symbol
+        },
+        {
+          type: "select", // Changed from 'list' to 'select' for better functionality
+          name: "interval",
+          message: "Choose the trading interval:",
+          choices: ["1m", "5m", "15m", "1h", "4h", "1d"],
+          default: "1h",
+        },
+        {
+          type: "input",
+          name: "starting_trade_amount",
+          message: "Enter the trade amount (USDT):",
+          default: 1000,
+          validate: (input) =>
+            isNaN(input) || input <= 0
+              ? "Quantity must be a positive number."
+              : true,
+        },
+        {
+          type: "input",
+          name: "trade_allocation",
+          message: "Enter the trade allocation percentage (%):",
+          default: 10,
+          validate: (input) =>
+            isNaN(input) || input <= 0
+              ? "Quantity must be a positive number."
+              : true,
+        },
+      ]);
+    }
+    // console.log(botName);
+    console.log(bot.name);
+    await sendRequest(bot.name, action, data);
 
     // Wait for user acknowledgment before returning to the actions menu
-    await inquirer.prompt([
+    await enquirer.prompt([
       {
         type: "input",
         name: "continue",
@@ -132,7 +204,7 @@ async function botActionsMenu(botName) {
       },
     ]);
   }
-}
+};
 
 // Start the CLI
 mainMenu();
