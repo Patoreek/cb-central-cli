@@ -158,7 +158,52 @@ const botActionsMenu = async (botKey) => {
       }
     } else if (action === "statuses") {
       const statusData = await sendRequest(bot.name, "statuses");
-      console.log(statusData || chalk.red("Failed to fetch bot statuses."));
+      const running_bots = statusData.running_bots;
+      if (running_bots) {
+        running_bots.forEach((bot) => {
+          const totalProfitLoss = parseFloat(
+            bot.bot_data.total_profit_loss || 0
+          ); // Ensure it's a number
+          const totalTrades = bot.bot_data.total_trades || 0;
+          const successfulTrades = bot.bot_data.successful_trades || 0;
+          const failedTrades = bot.bot_data.failed_trades || 0;
+          const baseCurrency = bot.bot_data.base_currency || "N/A";
+          const quoteCurrency = bot.bot_data.quote_currency || "N/A";
+          const baseQuantity = parseFloat(
+            bot.bot_data.base_current_currency_quantity || 0
+          );
+          const quoteQuantity = parseFloat(
+            bot.bot_data.quote_current_currency_quantity || 0
+          );
+
+          console.log(
+            chalk.bold(
+              `\n${chalk.blueBright("Bot Name:")} ${chalk.yellow(bot.bot_name)}`
+            )
+          );
+          console.log(
+            `${chalk.green("Total Profit/Loss:")} ${chalk.red(
+              totalProfitLoss.toFixed(8)
+            )} USDT`
+          );
+          console.log(
+            `${chalk.green("Trades:")} ${chalk.cyan(
+              totalTrades
+            )} | ${chalk.green("Success:")} ${chalk.cyan(
+              successfulTrades
+            )} | ${chalk.red("Failed:")} ${chalk.cyan(failedTrades)}`
+          );
+          console.log(
+            `${chalk.green(baseCurrency + ":")} ${chalk.yellow(
+              baseQuantity.toFixed(8)
+            )} | ${chalk.green(quoteCurrency + ":")} ${chalk.yellow(
+              quoteQuantity.toFixed(8)
+            )}`
+          );
+        });
+      } else {
+        console.log(chalk.red("Failed to fetch bot statuses."));
+      }
     }
 
     await enquirer.prompt([
