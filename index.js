@@ -6,54 +6,36 @@ import axios from "axios";
 import enquirer from "enquirer";
 
 // Load bot configuration
-const botsConfig = JSON.parse(fs.readFileSync("./bots.json", "utf8"));
+let botsConfig = {};
+try {
+  botsConfig = JSON.parse(fs.readFileSync("./bots.json", "utf8"));
+} catch (error) {
+  console.error(
+    chalk.red("Error: Unable to load bots.json. Please check the file.")
+  );
+  process.exit(1);
+}
 
 // Utility function to send requests to bots
 const sendRequest = async (botName, action, data = {}) => {
+  console.log(botName);
   botName = botName.toLowerCase();
   const bot = botsConfig[botName];
   if (!bot) {
     console.error(
       chalk.red(`Error: Bot "${botName}" not found in configuration.`)
     );
-    return;
+    return null;
   }
 
   try {
     const endpoint = `${bot.endpoint}/${action}`;
     const response =
-      action === "status"
+      action === "statuses"
         ? await axios.get(endpoint)
         : await axios.post(endpoint, data);
 
-    if (action === "status") {
-      const statusData = response.data;
-      console.log(chalk.green(`\n${bot.name} Status:`));
-      console.log(chalk.cyan(`  - Status: ${statusData.status}`));
-      console.log(
-        chalk.cyan(`  - Starting Price: $${statusData.starting_price}`)
-      );
-      console.log(
-        chalk.cyan(`  - Current Price: $${statusData.current_price}`)
-      );
-      console.log(
-        chalk.cyan(
-          `  - Current Total Profits: $${statusData.current_total_profits}`
-        )
-      );
-      console.log(
-        chalk.cyan(
-          `  - Weekly Total Profits: $${statusData.weekly_total_profits}`
-        )
-      );
-      console.log(chalk.cyan(`  - Total Trades: ${statusData.total_trades}`));
-      console.log(
-        chalk.cyan(`  - Successful Trades: ${statusData.successful_trades}`)
-      );
-      console.log(chalk.cyan(`  - Failed Trades: ${statusData.failed_trades}`));
-    } else {
-      console.log(chalk.green(`${bot.name}: ${response.data.message}`));
-    }
+    return response.data;
   } catch (error) {
     console.error(
       chalk.red(
@@ -62,6 +44,7 @@ const sendRequest = async (botName, action, data = {}) => {
         }`
       )
     );
+    return null;
   }
 };
 
@@ -78,12 +61,17 @@ const mainMenu = async () => {
 
   const { selectedBot } = await enquirer.prompt([
     {
-      type: "select", // Using 'select' for better functionality
+      type: "select",
       name: "selectedBot",
       message: "Select a bot to manage:",
       choices: botChoices,
-      result: (answer) =>
-        botChoices.find((choice) => choice.name === answer).value,
+      result: (name) => {
+        // Map the selected name back to the value
+        const selectedChoice = botChoices.find(
+          (choice) => choice.name === name
+        );
+        return selectedChoice?.value;
+      },
     },
   ]);
 
@@ -92,117 +80,161 @@ const mainMenu = async () => {
     process.exit(0);
   }
 
-  await botActionsMenu(selectedBot); // Pass the key to manage the selected bot
+  await botActionsMenu(selectedBot);
 };
 
 // Bot actions menu
 const botActionsMenu = async (botKey) => {
+  console.log(botKey.value);
   const bot = botsConfig[botKey];
-
-  // Check if bot is undefined or not found in the config
   if (!bot) {
     console.error(
-      chalk.red(`Error: Bot "${botName}" not found in configuration.`)
+      chalk.red(`Error: Bot "${botKey}" not found in configuration.`)
     );
-    return; // Exit the menu if the bot is not found
+    return;
   }
 
   while (true) {
     console.clear();
-    console.log(chalk.blue(`\nManaging: ${bot.name}`)); // Now we can safely access bot.name
+    console.log(chalk.blue(`\nManaging: ${bot.name}`));
 
     const botOptions = [
       { name: "🟢 Start Bot", value: "start" },
       { name: "🔴 Stop Bot", value: "stop" },
-      { name: "ℹ️ Get Bot Status", value: "status" },
+      { name: "ℹ️ Get Bot Statuses", value: "statuses" },
       { name: "⬅️ Back to Main Menu", value: "back" },
     ];
 
     const { action } = await enquirer.prompt([
       {
-        type: "select", // Changed from 'list' to 'select' for better functionality
+        type: "select",
         name: "action",
         message: `Choose an action for ${bot.name}:`,
         choices: botOptions,
-        result: (answer) =>
-          botOptions.find((choice) => choice.name === answer).value,
+        result: (name) => {
+          // Map the selected name back to the value
+          const selectedOption = botOptions.find(
+            (option) => option.name === name
+          );
+          return selectedOption?.value;
+        },
       },
     ]);
 
     if (action === "back") {
-      return; // Exit the current bot menu and go back to the main menu
+      return;
     }
 
     let data = {};
     if (action === "start") {
-      const symbols = [
-        "BTCUSDT",
-        "ETHUSDT",
-        "XRPUSDT",
-        "ADAUSDT",
-        "SOLUSDT",
-        "LTCUSDT",
-        "BNBUSDT",
-        "DOGEUSDT",
-        "MATICUSDT",
-        "BTCETH",
-        "ETHBTC",
-      ];
-
-      data = await enquirer.prompt([
-        {
-          type: "autocomplete", // Use autocomplete for symbol selection
-          name: "symbol",
-          message: "Enter or select the trading pair (e.g., BTCUSDT):",
-          choices: symbols, // All symbols are available
-          suggest: (input, choices) => {
-            return choices.filter((choice) =>
-              choice.toUpperCase().includes(input.toUpperCase())
-            );
+      data = await getBotStartInputs(bot.name);
+    } else if (action === "stop") {
+      const statusData = await sendRequest(bot.name, "statuses");
+      if (!statusData || !statusData.running_bots.length) {
+        console.log(chalk.yellow("No bots are currently running."));
+      } else {
+        const { botName } = await enquirer.prompt([
+          {
+            type: "select",
+            name: "botName",
+            message: "Select a bot to stop:",
+            choices: statusData.running_bots.map(
+              (b) =>
+                `${b.bot_name} (${b.bot_data.symbol}, ${b.bot_data.interval})`
+            ),
           },
-          default: "BTCUSDT", // Default symbol
-        },
-        {
-          type: "select", // Changed from 'list' to 'select' for better functionality
-          name: "interval",
-          message: "Choose the trading interval:",
-          choices: ["1m", "5m", "15m", "1h", "4h", "1d"],
-          default: "1h",
-        },
-        {
-          type: "input",
-          name: "starting_trade_amount",
-          message: "Enter the trade amount (USDT):",
-          default: 1000,
-          validate: (input) =>
-            isNaN(input) || input <= 0
-              ? "Quantity must be a positive number."
-              : true,
-        },
-        {
-          type: "input",
-          name: "trade_allocation",
-          message: "Enter the trade allocation percentage (%):",
-          default: 10,
-          validate: (input) =>
-            isNaN(input) || input <= 0
-              ? "Quantity must be a positive number."
-              : true,
-        },
-      ]);
+        ]);
+        const selectedBot = statusData.running_bots.find((b) =>
+          botName.includes(b.bot_name)
+        );
+        if (selectedBot) {
+          await sendRequest(bot.name, "stop", {
+            bot_name: selectedBot.bot_name,
+          });
+          console.log(
+            chalk.green(`Successfully stopped bot: ${selectedBot.bot_name}`)
+          );
+        }
+      }
+    } else if (action === "statuses") {
+      const statusData = await sendRequest(bot.name, "statuses");
+      console.log(statusData || chalk.red("Failed to fetch bot statuses."));
     }
-    // console.log(botName);
-    console.log(bot.name);
-    await sendRequest(bot.name, action, data);
 
-    // Wait for user acknowledgment before returning to the actions menu
     await enquirer.prompt([
       {
         type: "input",
         name: "continue",
-        message: chalk.yellow("\nPress Enter to continue..."),
+        message: chalk.yellow("Press Enter to continue..."),
       },
     ]);
+  }
+};
+
+// Collect inputs for starting a bot
+const getBotStartInputs = async (botName) => {
+  const symbols = [
+    "BTCUSDT",
+    "ETHUSDT",
+    "XRPUSDT",
+    "ADAUSDT",
+    "SOLUSDT",
+    "LTCUSDT",
+    "BNBUSDT",
+    "DOGEUSDT",
+    "MATICUSDT",
+    "BTCETH",
+    "ETHBTC",
+  ];
+
+  // Gather inputs
+  const inputs = await enquirer.prompt([
+    {
+      type: "autocomplete",
+      name: "symbol",
+      message: "Enter or select the trading pair (e.g., BTCUSDT):",
+      choices: symbols,
+      suggest: (input, choices) =>
+        choices.filter((choice) =>
+          choice.toUpperCase().includes(input.toUpperCase())
+        ),
+    },
+    {
+      type: "select",
+      name: "interval",
+      message: "Choose the trading interval:",
+      choices: ["1m", "5m", "15m", "1h", "4h", "1d"],
+      default: "1h",
+    },
+    {
+      type: "input",
+      name: "starting_trade_amount",
+      message: "Enter the trade amount (USDT):",
+      default: 1000,
+      validate: (input) =>
+        isNaN(input) || input <= 0
+          ? "Quantity must be a positive number."
+          : true,
+    },
+    {
+      type: "input",
+      name: "trade_allocation",
+      message: "Enter the trade allocation percentage (%):",
+      default: 10,
+      validate: (input) =>
+        isNaN(input) || input <= 0
+          ? "Percentage must be a positive number."
+          : true,
+    },
+  ]);
+
+  try {
+    const response = await sendRequest(botName, "start", inputs);
+    if (response?.message) {
+      console.log(chalk.green(response.message));
+    }
+  } catch (error) {
+    console.error(chalk.red(`Failed to start bot: ${error.message}`));
   }
 };
 
