@@ -4,8 +4,10 @@ import chalk from "chalk";
 import enquirer from "enquirer";
 import { runTrendr } from "./bots/trendr.js";
 import { loadBotsConfig } from "./config/config.js";
+import { startWebSocketServer } from "./config/websocket.js";
 
-// Load bot configuration
+startWebSocketServer();
+
 const botsConfig = loadBotsConfig();
 
 // Main menu logic

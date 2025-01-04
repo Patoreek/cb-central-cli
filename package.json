@@ -15,7 +15,8 @@
     "chalk": "^5.4.1",
     "commander": "^12.1.0",
     "enquirer": "^2.4.1",
-    "inquirer": "^12.3.0"
+    "inquirer": "^12.3.0",
+    "ws": "^8.18.0"
   },
   "type": "module",
   "bin": {
