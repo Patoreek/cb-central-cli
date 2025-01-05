@@ -178,11 +178,20 @@ const displayBotStatuses = (statusData) => {
   }
 
   statusData.running_bots.forEach((bot) => {
+    const tradeWindow = convertTradeWindow(bot.bot_data.trade_window);
+    const endTimeFormatted = formatEndTime(bot.bot_data.end_trade_time);
+    const timeRemaining = calculateTimeRemaining(bot.bot_data.end_trade_time);
+
+    // Display the output
     console.log(
       chalk.bold(
-        `\n${chalk.blueBright("Bot Name:")} ${chalk.yellow(bot.bot_name)}`
+        `\n${chalk.blueBright("Bot Name:")} ${chalk.yellow(bot.bot_name)} ` +
+          `${chalk.blue("Trade Window:")} ${chalk.yellow(tradeWindow)} ` +
+          `${chalk.blue("End Time:")} ${chalk.yellow(endTimeFormatted)} ` +
+          `${chalk.blue("Time Remaining:")} (${chalk.green(timeRemaining)})`
       )
     );
+
     console.log(
       `${chalk.green("Profit/Loss:")} ${chalk.red(
         bot.bot_data.total_profit_loss || 0
@@ -200,6 +209,48 @@ const displayBotStatuses = (statusData) => {
       `${chalk.red("Failed:")} ${chalk.cyan(bot.bot_data.failed_trades || 0)}`
     );
   });
+};
+
+// Function to calculate time remaining
+
+const convertTradeWindow = (window) => {
+  const [hours, minutes] = window.split(":").map(Number);
+  if (hours > 0) return `${hours}hr`;
+  return `${minutes}m`;
+};
+
+const formatEndTime = (endTime) => {
+  const endDate = new Date(endTime);
+  const day = String(endDate.getDate()).padStart(2, "0");
+  const month = String(endDate.getMonth() + 1).padStart(2, "0");
+  const year = endDate.getFullYear();
+
+  const hours = endDate.getHours() % 12 || 12; // Convert to 12-hour format
+  const minutes = String(endDate.getMinutes()).padStart(2, "0");
+  const seconds = String(endDate.getSeconds()).padStart(2, "0");
+  const ampm = endDate.getHours() >= 12 ? "PM" : "AM";
+
+  return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}${ampm}`;
+};
+
+const calculateTimeRemaining = (endTime) => {
+  const now = new Date();
+  const endDate = new Date(endTime);
+  const timeDiffMs = endDate - now;
+
+  if (timeDiffMs <= 0) return "Trade window ended";
+
+  const totalSeconds = Math.floor(timeDiffMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  let timeString = "";
+  if (hours > 0) timeString += `${hours} hour${hours > 1 ? "s" : ""} `;
+  if (minutes > 0) timeString += `${minutes} minute${minutes > 1 ? "s" : ""} `;
+  timeString += `${seconds} second${seconds > 1 ? "s" : ""}`;
+
+  return timeString.trim();
 };
 
 const pauseForUser = async () => {
