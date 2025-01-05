@@ -112,6 +112,7 @@ const getBotStartInputs = async (botName) => {
       name: "trade_window",
       message: "Choose how long the bot should trade:",
       choices: [
+        "infinite",
         "1m",
         "5m",
         "10m",
@@ -127,7 +128,7 @@ const getBotStartInputs = async (botName) => {
         "12hr",
         "24hr",
       ],
-      default: "1hr",
+      default: "infinite",
     },
   ]);
 };
@@ -178,17 +179,40 @@ const displayBotStatuses = (statusData) => {
   }
 
   statusData.running_bots.forEach((bot) => {
-    const tradeWindow = convertTradeWindow(bot.bot_data.trade_window);
-    const endTimeFormatted = formatEndTime(bot.bot_data.end_trade_time);
-    const timeRemaining = calculateTimeRemaining(bot.bot_data.end_trade_time);
+    const isInfinite = bot.bot_data.trade_window === "infinite";
+
+    const tradeWindow = isInfinite
+      ? "infinite"
+      : convertTradeWindow(bot.bot_data.trade_window);
+    const startTimeFormatted = isInfinite
+      ? formatStartTime(bot.bot_data.start_trade_time)
+      : null;
+    const tradingDuration = isInfinite
+      ? calculateTradingDuration(bot.bot_data.start_trade_time)
+      : null;
+    const endTimeFormatted = !isInfinite
+      ? formatEndTime(bot.bot_data.end_trade_time)
+      : null;
+    const timeRemaining = !isInfinite
+      ? calculateTimeRemaining(bot.bot_data.end_trade_time)
+      : null;
 
     // Display the output
     console.log(
       chalk.bold(
         `\n${chalk.blueBright("Bot Name:")} ${chalk.yellow(bot.bot_name)} ` +
           `${chalk.blue("Trade Window:")} ${chalk.yellow(tradeWindow)} ` +
-          `${chalk.blue("End Time:")} ${chalk.yellow(endTimeFormatted)} ` +
-          `${chalk.blue("Time Remaining:")} (${chalk.green(timeRemaining)})`
+          (isInfinite
+            ? `${chalk.blue("Start Time:")} ${chalk.yellow(
+                startTimeFormatted
+              )} ` +
+              `${chalk.blue("Trading Duration:")} (${chalk.green(
+                tradingDuration
+              )})`
+            : `${chalk.blue("End Time:")} ${chalk.yellow(endTimeFormatted)} ` +
+              `${chalk.blue("Time Remaining:")} (${chalk.green(
+                timeRemaining
+              )})`)
       )
     );
 
@@ -211,7 +235,40 @@ const displayBotStatuses = (statusData) => {
   });
 };
 
-// Function to calculate time remaining
+// Function to format the start time
+const formatStartTime = (startTime) => {
+  const startDate = new Date(startTime);
+  return startDate.toLocaleString("en-AU", {
+    timeZone: "Australia/Sydney",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+};
+
+// Function to calculate trading duration
+const calculateTradingDuration = (startTime) => {
+  const now = new Date();
+  const startDate = new Date(startTime);
+  const timeDiffMs = now - startDate;
+
+  const totalSeconds = Math.floor(timeDiffMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  let durationString = "";
+  if (hours > 0) durationString += `${hours} hour${hours > 1 ? "s" : ""} `;
+  if (minutes > 0)
+    durationString += `${minutes} minute${minutes > 1 ? "s" : ""} `;
+  durationString += `${seconds} second${seconds > 1 ? "s" : ""}`;
+
+  return durationString.trim();
+};
 
 const convertTradeWindow = (window) => {
   const [hours, minutes] = window.split(":").map(Number);
