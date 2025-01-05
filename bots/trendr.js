@@ -216,11 +216,14 @@ const displayBotStatuses = (statusData) => {
       )
     );
 
+    const profitLossColor =
+      bot.bot_data.total_profit_loss < 0 ? chalk.red : chalk.green;
     console.log(
-      `${chalk.green("Profit/Loss:")} ${chalk.red(
+      `${chalk.green("Profit/Loss:")} ${profitLossColor(
         bot.bot_data.total_profit_loss || 0
       )} USDT`
     );
+
     console.log(
       `${chalk.green("Trades:")} ${chalk.cyan(bot.bot_data.total_trades || 0)}`
     );

@@ -5,7 +5,6 @@ export const loadBotsConfig = () => {
   let botsConfig = {};
   try {
     botsConfig = JSON.parse(fs.readFileSync("./config/bots.json", "utf8"));
-    console.log("test");
     return botsConfig;
   } catch (error) {
     console.error(
