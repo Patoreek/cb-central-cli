@@ -18,7 +18,7 @@ export const startWebSocketServer = () => {
     log("New client connected");
 
     ws.on("message", (message) => {
-      console.log(`Received message: ${message}`);
+      //   console.log(`Received message: ${message}`);
       log(`Received message: ${message}`);
       ws.send(`Server received: ${message}`);
     });
