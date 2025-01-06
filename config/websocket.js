@@ -40,10 +40,17 @@ export const startWebSocketServer = () => {
         total_trades INT,
         successful_trades INT,
         failed_trades INT,
+        total_buys INT,
+        total_sells INT,
+        total_holds INT,
         total_profit_loss REAL,
-        daily_log JSONB,
-        logger JSONB,
-        logger_thread JSONB,
+        market_action TEXT,
+        market_price REAL,
+        market_quantity REAL,
+        market_value REAL,
+        market_fee REAL,
+        market_net_value REAL,
+        market_timestamp TIMESTAMP,
         created_at TIMESTAMP DEFAULT NOW()
       );
     `;
@@ -58,15 +65,14 @@ export const startWebSocketServer = () => {
         current_trade_amount, base_starting_currency_quantity, base_current_currency_quantity,
         quote_current_currency_quantity, currency_quantity_precision, previous_market_price,
         current_market_price, total_trades, successful_trades, failed_trades, total_profit_loss,
-        daily_log, logger, logger_thread
+        total_buys, total_sells, total_holds, market_action, market_price, market_quantity,
+        market_value, market_fee, market_net_value
       )
       VALUES (
         $1, $2, $3, $4, $5, $6,
-        $7, $8, $9, $10,
-        $11, $12, $13,
-        $14, $15, $16,
-        $17, $18, $19, $20, $21,
-        $22, $23, $24, $25
+        $7, $8, $9, $10, $11, $12, $13,
+        $14, $15, $16, $17, $18, $19, $20, $21,
+        $22, $23, $24, $25, $26, $27, $28, $29, $30, $31
       );
     `;
     const values = [
@@ -92,9 +98,15 @@ export const startWebSocketServer = () => {
       data.successful_trades,
       data.failed_trades,
       data.total_profit_loss,
-      JSON.stringify(data.daily_log),
-      JSON.stringify(data.logger),
-      JSON.stringify(data.logger_thread),
+      data.total_buys,
+      data.total_sells,
+      data.total_holds,
+      data.market_action,
+      data.market_price,
+      data.market_quantity,
+      data.market_value,
+      data.market_fee,
+      data.market_net_value,
     ];
     await pool.query(query, values);
   };
