@@ -61,10 +61,10 @@ export const startWebSocketServer = () => {
     const query = `
       INSERT INTO ${tableName} (
         running, symbol, fiat_stablecoin, base_currency, quote_currency, interval,
-        trade_allocation, trade_window, start_trade_time, end_trade_time, starting_trade_amount,
+        trade_allocation, dynamic_trade_allocation, trade_window, start_trade_time, end_trade_time, starting_trade_amount,
         current_trade_amount, base_starting_currency_quantity, base_current_currency_quantity,
         quote_current_currency_quantity, currency_quantity_precision, previous_market_price,
-        current_market_price, total_trades, successful_trades, failed_trades, total_profit_loss,
+        current_market_price, highest_market_price, total_trades, successful_trades, failed_trades, total_profit_loss,
         total_buys, total_sells, total_holds, market_action, market_price, market_quantity,
         market_value, market_fee, market_net_value
       )
@@ -72,7 +72,7 @@ export const startWebSocketServer = () => {
         $1, $2, $3, $4, $5, $6,
         $7, $8, $9, $10, $11, $12, $13,
         $14, $15, $16, $17, $18, $19, $20, $21,
-        $22, $23, $24, $25, $26, $27, $28, $29, $30, $31
+        $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33
       );
     `;
     const values = [
@@ -83,6 +83,7 @@ export const startWebSocketServer = () => {
       data.quote_currency,
       data.interval,
       data.trade_allocation,
+      data.dynamic_trade_allocation,
       data.trade_window,
       data.start_trade_time,
       data.end_trade_time,
@@ -94,6 +95,7 @@ export const startWebSocketServer = () => {
       data.currency_quantity_precision,
       data.previous_market_price,
       data.current_market_price,
+      data.highest_market_price,
       data.total_trades,
       data.successful_trades,
       data.failed_trades,

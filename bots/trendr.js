@@ -47,6 +47,7 @@ const getBotStartInputs = async (botName) => {
     "ETHUSDT",
     "BTCETH",
     "DOGEUSDT",
+    "RAYUSDT",
     // "XRPUSDT",
     // "SOLUSDT",
     // "LTCUSDT",
